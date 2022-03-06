@@ -500,46 +500,15 @@ int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
 }
 
 int DeleteDir(char* pPath) {
-	int dirH;
+	OSScreenClearBufferEx(SCREEN_TV, 0);
+	OSScreenClearBufferEx(SCREEN_DRC, 0);
 
-	if (IOSUHAX_FSA_OpenDir(fsaFd, pPath, &dirH) < 0) return -1;
-
-	while (1) {
-		directoryEntry_s data;
-		int ret = IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data);
-		if (ret != 0)
-			break;
-
-		OSScreenClearBufferEx(SCREEN_TV, 0);
-		OSScreenClearBufferEx(SCREEN_DRC, 0);
-
-		if (strcmp(data.name, "..") == 0 || strcmp(data.name, ".") == 0) continue;
-
-		int len = strlen(pPath);
-		snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data.name);
-
-		if (data.stat.flag & DIR_ENTRY_IS_DIRECTORY) {
-			char origPath[PATH_SIZE];
-			sprintf(origPath, "%s", pPath);
-			DeleteDir(pPath);
-
-			OSScreenClearBufferEx(SCREEN_TV, 0);
-			OSScreenClearBufferEx(SCREEN_DRC, 0);
-
-			console_print_pos(-2, 0, "Deleting folder %s", data.name);
-			console_print_pos_multiline(-2, 2, '/', "From: \n%s", origPath);
-			if (IOSUHAX_FSA_Remove(fsaFd, origPath) != 0) promptError("Failed to delete folder.");
-		} else {
-			console_print_pos(-2, 0, "Deleting file %s", data.name);
-			console_print_pos_multiline(-2, 2, '/', "From: \n%s", pPath);
-			if (IOSUHAX_FSA_Remove(fsaFd, pPath) != 0) promptError("Failed to delete file.");
-		}
-
-		flipBuffers();
-		pPath[len] = 0;
-	}
-
-	IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+	console_print_pos(-2, 0, "Deleting folder %s", pPath);
+	
+	std::filesystem::remove_all(pPath);
+			
+	flipBuffers();
+		
 	return 0;
 }
 
