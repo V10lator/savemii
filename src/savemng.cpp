@@ -417,11 +417,11 @@ int DumpFile(char* pPath, const char* oPath) {
     }while(!pBuffer);
  
     // Get the input file size
-    fileStat_s fStat;
+    struct stat fStat;
     fstat(in, &fStat);
  
-    sizew = 0;
-    sizef = fStat.size;
+    int sizew = 0;
+    int sizef = fStat.st_size;
     u32 passedMs = 1;
     u64 startTime = OSGetTime();
  
