@@ -399,66 +399,49 @@ void getAccountsSD(Title* title, u8 slot) {
 }
 
 int DumpFile(char* pPath, const char* oPath) {
-	int srcFd = -1, destFd = -1;
-	int ret = 0;
-	int buf_size = BUFFER_SIZE;
-	uint8_t * pBuffer;
-
-	do{
-		buf_size -= BUFFER_SIZE_STEPS;
-		if (buf_size < 0) {
-			promptError("Error allocating Buffer.");
-			return -1;
-		}
-		pBuffer = (uint8_t *)memalign(0x40, buf_size);
-		if (pBuffer) memset(pBuffer, 0x00, buf_size);
-	}while(!pBuffer);
-
-	ret = IOSUHAX_FSA_OpenFile(fsaFd, pPath, "rb", &srcFd);
-	if (ret >= 0) {
-		fileStat_s fStat;
-		IOSUHAX_FSA_StatFile(fsaFd, srcFd, &fStat);
-		if ((ret = IOSUHAX_FSA_OpenFile(fsaFd, oPath, "wb", &destFd)) >= 0) {
-			int result, sizew = 0, sizef = fStat.size;
-			int fwrite = 0;
-			u32 passedMs = 1;
-			u64 startTime = OSGetTime();
-
-			while ((result = IOSUHAX_FSA_ReadFile(fsaFd, pBuffer, 0x01, buf_size, srcFd, 0)) > 0) {
-				if ((fwrite = IOSUHAX_FSA_WriteFile(fsaFd, pBuffer, 0x01, result, destFd, 0)) < 0) {
-					promptError("Write %d,%s", fwrite, oPath);
-					IOSUHAX_FSA_CloseFile(fsaFd, destFd);
-					IOSUHAX_FSA_CloseFile(fsaFd, srcFd);
-					free(pBuffer);
-					return -1;
-				}
-				sizew += fwrite;
-				passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
-				if(passedMs == 0)
-					passedMs = 1;
-
-				OSScreenClearBufferEx(SCREEN_TV, 0);
-				OSScreenClearBufferEx(SCREEN_DRC, 0);
-				show_file_operation(p1, pPath, oPath);
-				console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
-				flipBuffers();
-			}
-		} else {
-			promptError("Open File W %d,%s", ret, oPath);
-			IOSUHAX_FSA_CloseFile(fsaFd, srcFd);
-			free(pBuffer);
-			return -1;
-		}
-		IOSUHAX_FSA_CloseFile(fsaFd, destFd);
-		IOSUHAX_FSA_CloseFile(fsaFd, srcFd);
-		IOSUHAX_FSA_ChangeMode(fsaFd, oPath, 0x666);
-		free(pBuffer);
-	} else {
-		promptError("Open File R %d,%s", ret, pPath);
-		free(pBuffer);
-		return -1;
-	}
-	return 0;
+    int srcFd = -1, destFd = -1;
+    int ret = 0;
+    int buf_size = BUFFER_SIZE;
+    uint8_t * pBuffer;
+    int in = open(pPath, O_RDONLY);
+    int out = open(oPath, O_WRONLY | O_CREAT | O_TRUNC);
+    do{
+        buf_size -= BUFFER_SIZE_STEPS;
+        if (buf_size < 0) {
+            promptError("Error allocating Buffer.");
+            return -1;
+        }
+        pBuffer = (uint8_t *)memalign(0x40, buf_size);
+        if (pBuffer) memset(pBuffer, 0x00, buf_size);
+    }while(!pBuffer);
+ 
+    // Get the input file size
+    fileStat_s fStat;
+    fstat(in, &fStat);
+ 
+    sizew = 0;
+    sizef = fStat.size;
+    u32 passedMs = 1;
+    u64 startTime = OSGetTime();
+ 
+    ssize_t bytes_read;
+    while((bytes_read = read(in, pBuffer, buf_size)) > 0)
+    {
+        write(out, pBuffer, buf_size);
+        sizew += bytes_read;
+        passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
+      if(passedMs == 0)
+          passedMs = 1;
+        OSScreenClearBufferEx(SCREEN_TV, 0);
+      OSScreenClearBufferEx(SCREEN_DRC, 0);
+      show_file_operation(p1, pPath, oPath);
+      console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
+      flipBuffers();
+    }
+      close(in);
+      close(out);
+      free(pBuffer);
+    return 0;
 }
 
 int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
