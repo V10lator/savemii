@@ -2,6 +2,7 @@
 extern "C" {
 	#include "common/fs_defs.h"
 	#include "savemng.h"
+	#include <fcntl.h>
 }
 
 #define BUFFER_SIZE 				0x8020
