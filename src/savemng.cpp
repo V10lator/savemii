@@ -429,7 +429,7 @@ int DumpFile(char* pPath, const char* oPath) {
     ssize_t bytes_read;
     while((bytes_read = fread(in, pBuffer, buf_size)) > 0)
     {
-        fwrite(out, pBuffer, buf_size);
+        fwrite(pBuffer, buf_size, 1, out);
         sizew += bytes_read;
         passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
       if(passedMs == 0)
