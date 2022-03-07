@@ -405,8 +405,8 @@ int DumpFile(char* pPath, const char* oPath) {
     int ret = 0;
     int buf_size = BUFFER_SIZE;
     uint8_t * pBuffer;
-    int in = fopen(pPath, O_RDONLY);
-    int out = fopen(oPath, O_WRONLY | O_CREAT | O_TRUNC);
+    int in = fopen(pPath, "r");
+    int out = fopen(oPath, "rbw");
     do{
         buf_size -= BUFFER_SIZE_STEPS;
         if (buf_size < 0) {
@@ -427,7 +427,7 @@ int DumpFile(char* pPath, const char* oPath) {
     u64 startTime = OSGetTime();
  
     ssize_t bytes_read;
-    while((bytes_read = fread(in, pBuffer, buf_size)) > 0)
+    while((bytes_read = fread(pBuffer, buf_size, 1, out)) > 0)
     {
         fwrite(pBuffer, buf_size, 1, out);
         sizew += bytes_read;
