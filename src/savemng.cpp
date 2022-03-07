@@ -405,8 +405,8 @@ int DumpFile(char* pPath, const char* oPath) {
     int ret = 0;
     int buf_size = BUFFER_SIZE;
     uint8_t * pBuffer;
-    int in = open(pPath, O_RDONLY);
-    int out = open(oPath, O_WRONLY | O_CREAT | O_TRUNC);
+    int in = fopen(pPath, O_RDONLY);
+    int out = fopen(oPath, O_WRONLY | O_CREAT | O_TRUNC);
     do{
         buf_size -= BUFFER_SIZE_STEPS;
         if (buf_size < 0) {
@@ -427,9 +427,9 @@ int DumpFile(char* pPath, const char* oPath) {
     u64 startTime = OSGetTime();
  
     ssize_t bytes_read;
-    while((bytes_read = read(in, pBuffer, buf_size)) > 0)
+    while((bytes_read = fread(in, pBuffer, buf_size)) > 0)
     {
-        write(out, pBuffer, buf_size);
+        fwrite(out, pBuffer, buf_size);
         sizew += bytes_read;
         passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
       if(passedMs == 0)
@@ -440,8 +440,8 @@ int DumpFile(char* pPath, const char* oPath) {
       console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
       flipBuffers();
     }
-      close(in);
-      close(out);
+      fclose(in);
+      fclose(out);
       free(pBuffer);
     return 0;
 }
