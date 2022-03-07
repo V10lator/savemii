@@ -426,11 +426,11 @@ int DumpFile(char* pPath, const char* oPath) {
     u32 passedMs = 1;
     u64 startTime = OSGetTime();
  
-    ssize_t bytes_read;
-    while((bytes_read = fread(pBuffer, buf_size, 1, out)) > 0)
-    {
+   
+   
+    
         fwrite(pBuffer, buf_size, 1, out);
-        sizew += bytes_read;
+       
         passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
       if(passedMs == 0)
           passedMs = 1;
@@ -439,7 +439,7 @@ int DumpFile(char* pPath, const char* oPath) {
       show_file_operation(p1, pPath, oPath);
       console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
       flipBuffers();
-    }
+    
       fclose(in);
       fclose(out);
       free(pBuffer);
