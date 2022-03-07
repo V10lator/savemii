@@ -401,49 +401,45 @@ void getAccountsSD(Title* title, u8 slot) {
 }
 
 int DumpFile(char* pPath, const char* oPath) {
-    int srcFd = -1, destFd = -1;
-    int ret = 0;
-    int buf_size = BUFFER_SIZE;
-    uint8_t * pBuffer;
-    FILE* in = fopen(pPath, "r");
-    FILE* out = fopen(oPath, "rbw");
-    do{
-        buf_size -= BUFFER_SIZE_STEPS;
-        if (buf_size < 0) {
-            promptError("Error allocating Buffer.");
-            return -1;
-        }
-        pBuffer = (uint8_t *)memalign(0x40, buf_size);
-        if (pBuffer) memset(pBuffer, 0x00, buf_size);
-    }while(!pBuffer);
- 
-    // Get the input file size
-    struct stat fStat;
-    fstat(in, &fStat);
- 
-    int sizew = 0;
-    int sizef = fStat.st_size;
-    u32 passedMs = 1;
-    u64 startTime = OSGetTime();
- 
-   
-   
-    
-        fwrite(&pBuffer, sizeof(in), 1, out);
-       
-        passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
-      if(passedMs == 0)
-          passedMs = 1;
-        OSScreenClearBufferEx(SCREEN_TV, 0);
-      OSScreenClearBufferEx(SCREEN_DRC, 0);
-      show_file_operation(p1, pPath, oPath);
-      console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
-      flipBuffers();
-    
-      fclose(in);
-      fclose(out);
-      free(pBuffer);
-    return 0;
+	int startTime = OSGetTime();
+	int passedMs = 1;
+	int written = 0;
+	struct stat finfo;
+	FILE *sFile = fopen(pPath, "r");
+	FILE *oFile = fopen(oPath, "w");
+	fstat(sFile, &finfo);
+	int result, sizew = 0, sizef = finfo.st_size;
+
+	int buf_size = BUFFER_SIZE;
+	uint8_t * pBuffer;
+
+	do{
+		buf_size -= BUFFER_SIZE_STEPS;
+		if (buf_size < 0) {
+			promptError("Error allocating Buffer.");
+			return -1;
+		}
+		pBuffer = (uint8_t *)memalign(0x40, buf_size);
+		if (pBuffer) memset(pBuffer, 0x00, buf_size);
+	}while(!pBuffer);
+
+    ssize_t st;
+    while((st = fread(pBuffer, buf_size, 1, sFile)) > 0){
+		passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
+		if(passedMs == 0)
+			passedMs = 1;
+		OSScreenClearBufferEx(SCREEN_TV, 0);
+		OSScreenClearBufferEx(SCREEN_DRC, 0);
+		show_file_operation("file", pPath, oPath);
+		console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
+		flipBuffers();
+        	written = fwrite(pBuffer, buf_size, 1, oFile);
+		sizew += written;
+    }
+	fclose(sFile);
+	fclose(oFile);
+	free(pBuffer);
+	return 0;
 }
 
 int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
