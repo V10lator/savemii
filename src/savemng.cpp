@@ -405,8 +405,8 @@ int DumpFile(char* pPath, const char* oPath) {
     int ret = 0;
     int buf_size = BUFFER_SIZE;
     uint8_t * pBuffer;
-    int in = fopen(pPath, "r");
-    int out = fopen(oPath, "rbw");
+    FILE* in = fopen(pPath, "r");
+    FILE* out = fopen(oPath, "rbw");
     do{
         buf_size -= BUFFER_SIZE_STEPS;
         if (buf_size < 0) {
