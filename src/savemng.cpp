@@ -408,16 +408,24 @@ void getAccountsSD(Title* title, u8 slot) {
 int DumpFile(char* pPath, const char* oPath) {
 
   
-  
+  int buf_size = BUFFER_SIZE;
+	uint8_t * pBuffer;
 
- char buf[BUFFER_SIZE];
-    size_t size;
+	do{
+		buf_size -= BUFFER_SIZE_STEPS;
+		if (buf_size < 0) {
+			promptError("Error allocating Buffer.");
+			return -1;
+		}
+		pBuffer = (uint8_t *)memalign(0x40, buf_size);
+		if (pBuffer) memset(pBuffer, 0x00, buf_size);
+	}while(!pBuffer);
 
     int source = open(pPath, O_RDONLY, 0);
     int dest = open(oPath, O_WRONLY | O_CREAT /*| O_TRUNC/**/, 0644);
 
-    while ((size = read(source, buf, BUFSIZ)) > 0) {
-        write(dest, buf, size);
+    while ((size = read(source, pBuffer, buf_size)) > 0) {
+        write(dest, pBuffer, buf_size);
         OSScreenClearBufferEx(SCREEN_TV, 0);
         OSScreenClearBufferEx(SCREEN_DRC, 0);
         show_file_operation("file", pPath, oPath);
@@ -427,6 +435,7 @@ int DumpFile(char* pPath, const char* oPath) {
 
     close(source);
     close(dest);
+    free(pBuffer);
    
        
        
