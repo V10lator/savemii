@@ -424,7 +424,7 @@ int DumpFile(char* pPath, const char* oPath) {
     int source = open(pPath, O_RDONLY, 0);
     int dest = open(oPath, O_WRONLY | O_CREAT /*| O_TRUNC/**/, 0644);
 
-    while ((size = read(source, pBuffer, buf_size)) > 0) {
+    while ((size_file = read(source, pBuffer, buf_size)) > 0) {
         write(dest, pBuffer, buf_size);
         OSScreenClearBufferEx(SCREEN_TV, 0);
         OSScreenClearBufferEx(SCREEN_DRC, 0);
