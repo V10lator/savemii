@@ -417,8 +417,7 @@ int DumpFile(char* pPath, const char* oPath) {
         std::filesystem::copy_file(pPath, oPath);
     
 
-    fclose(source);
-    fclose(dest);
+   
 
    return 0;
 }
