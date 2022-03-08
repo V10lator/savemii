@@ -407,7 +407,15 @@ int DumpFile(char* pPath, const char* oPath) {
    show_file_operation("file", pPath, oPath);
                
    flipBuffers();
-   std::filesystem::copy_file(pPath, oPath);
+  
+
+    ifstream source(pPath, ios::binary);
+    ofstream dest(oPath, ios::binary);
+
+    dest << source.rdbuf();
+
+    source.close();
+    dest.close();
 
    return 0;
 }
