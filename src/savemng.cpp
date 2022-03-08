@@ -1,5 +1,7 @@
 #include <nn/act/client_cpp.h>
 #include <filesystem>
+#include <iostream>
+#include <fstream>
 extern "C" {
 	#include "common/fs_defs.h"
 	#include "savemng.h"
