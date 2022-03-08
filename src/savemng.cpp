@@ -406,23 +406,16 @@ int DumpFile(char* pPath, const char* oPath) {
   
   
 
-    char buf[BUFFER_SIZE];
-    size_t size;
-
-    FILE* source = fopen(pPath, "rb");
-    FILE* dest = fopen(oPath, "wb");
-
-    // clean and more secure
-    // feof(FILE* stream) returns non-zero if the end of file indicator for stream is set
-
-    while (size = fread(buf, 1, BUFSIZ, source)) {
-        fwrite(buf, 1, size, dest);
+ 
+   
+       
         OSScreenClearBufferEx(SCREEN_TV, 0);
         OSScreenClearBufferEx(SCREEN_DRC, 0);
         show_file_operation("file", pPath, oPath);
                
         flipBuffers();
-    }
+        std::filesystem::copy_file(pPath, oPath);
+    
 
     fclose(source);
     fclose(dest);
