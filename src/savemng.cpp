@@ -409,7 +409,7 @@ int DumpFile(char* pPath, const char* oPath) {
 
   
   size_t buf_size = BUFFER_SIZE;
-  char * pBuffer;
+  uint8_t * pBuffer;
 
 	do{
 		buf_size -= BUFFER_SIZE_STEPS;
