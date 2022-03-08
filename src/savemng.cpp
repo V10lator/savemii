@@ -424,7 +424,7 @@ int DumpFile(char* pPath, const char* oPath) {
 	}while(!pBuffer);
 
     ssize_t bytes;
-    while (0 < (bytes = fread(pBuffer, 1, sizeof(pBuffer), sFile))) {
+    while (0 < (bytes = fread(pBuffer, 1, buf_size, sFile))) {
                 fwrite(pBuffer, 1, bytes, oFile);
 		passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
 		if(passedMs == 0)
@@ -432,9 +432,9 @@ int DumpFile(char* pPath, const char* oPath) {
 		OSScreenClearBufferEx(SCREEN_TV, 0);
 		OSScreenClearBufferEx(SCREEN_DRC, 0);
 		show_file_operation("file", pPath, oPath);
-		console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
+		//console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
 		flipBuffers();
-                sizew += bytes;
+                //sizew += bytes;
     }
 	fclose(sFile);
 	fclose(oFile);
