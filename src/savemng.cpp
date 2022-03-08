@@ -406,15 +406,27 @@ int DumpFile(char* pPath, const char* oPath) {
   
   
 
- 
-   
-       
+ char buf[BUFFER_SIZE];
+    size_t size;
+
+    int source = open(pPath, O_RDONLY, 0);
+    int dest = open(oPath, O_WRONLY | O_CREAT /*| O_TRUNC/**/, 0644);
+
+    while ((size = read(source, buf, BUFSIZ)) > 0) {
+        write(dest, buf, size);
         OSScreenClearBufferEx(SCREEN_TV, 0);
         OSScreenClearBufferEx(SCREEN_DRC, 0);
         show_file_operation("file", pPath, oPath);
                
         flipBuffers();
-        std::filesystem::copy_file(pPath, oPath);
+    }
+
+    close(source);
+    close(dest);
+   
+       
+       
+       
     
 
    
