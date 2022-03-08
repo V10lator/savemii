@@ -424,22 +424,37 @@ int DumpFile(char* pPath, const char* oPath) {
 	}while(!pBuffer);
 
     ssize_t bytes;
-    while (0 < (bytes = fread(pBuffer, buf_size, 1, sFile))) {
-                OSScreenClearBufferEx(SCREEN_TV, 0);
-		OSScreenClearBufferEx(SCREEN_DRC, 0);
-                show_file_operation("file", pPath, oPath);
-                console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
+    for(;;) {
+   size_t r;
+   r =  fread(pBuffer, 1, 10, sFile);
+   if (r == 0) {
+       if (ferror(sFile)) {
+           puts("Error reading from source");
+       }
+
+       break; //we're done
+   }
+   if (fwrite(pBuffer, 1, r, oFile) != r) {
+       puts("Error writing to destination");
+       break;
+   }
+   OSScreenClearBufferEx(SCREEN_TV, 0);
+   OSScreenClearBufferEx(SCREEN_DRC, 0);
+   show_file_operation("file", pPath, oPath);
+                //console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
 	
-                sizew += bytes;
+                //sizew += bytes;
                 flipBuffers();
-                fwrite(pBuffer, buf_size, 1, oFile);
-		passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
-		if(passedMs == 0)
-			passedMs = 1;
+                //fwrite(pBuffer, buf_size, 1, oFile);
+		//passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
+		//if(passedMs == 0)
+			//passedMs = 1;
+}
+        
 	
 	
 	
-    }
+    
 	fclose(sFile);
 	fclose(oFile);
 	free(pBuffer);
