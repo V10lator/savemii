@@ -408,8 +408,8 @@ void getAccountsSD(Title* title, u8 slot) {
 int DumpFile(char* pPath, const char* oPath) {
 
   
-  int buf_size = BUFFER_SIZE;
-	uint8_t * pBuffer;
+  size_t buf_size = BUFFER_SIZE;
+  char * pBuffer;
 
 	do{
 		buf_size -= BUFFER_SIZE_STEPS;
