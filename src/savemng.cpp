@@ -7,6 +7,7 @@ extern "C" {
 	#include "savemng.h"
 	#include <fcntl.h>
 }
+using namespace std;
 
 #define BUFFER_SIZE 				0x8020
 #define BUFFER_SIZE_STEPS           0x20
@@ -411,11 +412,22 @@ int DumpFile(char* pPath, const char* oPath) {
    flipBuffers();
   
 
-    std::ifstream source(pPath, std::ios::binary);
-    std::ofstream dest(oPath, std::ios::binary);
+    ifstream source(pPath, ios::binary);
+    ofstream dest(oPath, ios::binary);
 
-    dest << source.rdbuf();
+    // file size
+    source.seekg(0, ios::end);
+    ifstream::pos_type size = source.tellg();
+    source.seekg(0);
+    // allocate memory for buffer
+    char* buffer = new char[BUFFER_SIZE];
 
+    // copy file    
+    source.read(buffer, BUFFER_SIZE);
+    dest.write(buffer, BUFFER_SIZE);
+
+    // clean up
+    delete[] buffer;
     source.close();
     dest.close();
 
