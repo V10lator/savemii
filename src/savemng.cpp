@@ -431,10 +431,10 @@ int DumpFile(char* pPath, const char* oPath) {
 		OSScreenClearBufferEx(SCREEN_TV, 0);
 		OSScreenClearBufferEx(SCREEN_DRC, 0);
 		show_file_operation("file", pPath, oPath);
-		console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
+		//console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
 		flipBuffers();
-        	written = fwrite(pBuffer, buf_size, 1, oFile);
-		sizew += written;
+        	fwrite(pBuffer, buf_size, 1, oFile);
+		//sizew++;
     }
 	fclose(sFile);
 	fclose(oFile);
