@@ -447,45 +447,45 @@ int DumpFile(char *pPath, const char * oPath)
 }
 
 int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
-	int dirH;
+	DIR *dir = NULL;
 
-	if (IOSUHAX_FSA_OpenDir(fsaFd, pPath, &dirH) < 0) return -1;
-	IOSUHAX_FSA_MakeDir(fsaFd, tPath, 0x666);
+	if ((dir = opendir(pPath)) == NULL) return -1;
+	mkdir(tPath, 0x666);
 
 	while (1) {
-		directoryEntry_s data;
-		int ret = IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data);
+		struct dirent *data;
+		int ret = readdir(dir);
 		if (ret != 0)
 			break;
 
 		OSScreenClearBufferEx(SCREEN_TV, 0);
 		OSScreenClearBufferEx(SCREEN_DRC, 0);
 
-		if (strcmp(data.name, "..") == 0 || strcmp(data.name, ".") == 0) continue;
+		if (strcmp(data->d_name, "..") == 0 || strcmp(data->d_name, ".") == 0) continue;
 
 		int len = strlen(pPath);
-		snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data.name);
+		snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data->d_name);
 
-		if (data.stat.flag & DIR_ENTRY_IS_DIRECTORY) {
+		if (data->d_type & DT_DIR) {
 			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
-			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
+			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data->d_name);
 
-			IOSUHAX_FSA_MakeDir(fsaFd, targetPath, 0x666);
+			mkdir(targetPath, 0x666);
 			if (DumpDir(pPath, targetPath) != 0) {
-				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+				closedir(dir);
 				return -2;
 			}
 
 			free(targetPath);
 		} else {
 			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
-			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
+			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data->d_name);
 
-			p1 = data.name;
-			show_file_operation(data.name, pPath, targetPath);
+			p1 = data->d_name;
+			show_file_operation(data->d_name, pPath, targetPath);
 
 			if (DumpFile(pPath, targetPath) != 0) {
-				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+				closedir(dir);
 				return -3;
 			}
 
@@ -495,7 +495,7 @@ int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
 		pPath[len] = 0;
 	}
 
-	IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+	closedir(dir);
 
 	return 0;
 }
