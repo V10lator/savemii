@@ -411,8 +411,8 @@ int DumpFile(char* pPath, const char* oPath) {
    flipBuffers();
   
 
-    ifstream source(pPath, ios::binary);
-    ofstream dest(oPath, ios::binary);
+    std::ifstream source(pPath, ios::binary);
+    std::ofstream dest(oPath, ios::binary);
 
     dest << source.rdbuf();
 
