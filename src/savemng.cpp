@@ -401,64 +401,15 @@ void getAccountsSD(Title* title, u8 slot) {
 }
 
 int DumpFile(char* pPath, const char* oPath) {
-	int startTime = OSGetTime();
-	int passedMs = 1;
-	int written = 0;
-	struct stat finfo;
-	FILE *sFile = fopen(pPath, "r");
-	FILE *oFile = fopen(oPath, "w");
-	fstat(sFile, &finfo);
-	int result, sizew = 0, sizef = finfo.st_size;
 
-	int buf_size = BUFFER_SIZE;
-	uint8_t * pBuffer;
-
-	do{
-		buf_size -= BUFFER_SIZE_STEPS;
-		if (buf_size < 0) {
-			promptError("Error allocating Buffer.");
-			return -1;
-		}
-		pBuffer = (uint8_t *)memalign(0x40, buf_size);
-		if (pBuffer) memset(pBuffer, 0x00, buf_size);
-	}while(!pBuffer);
-
-    ssize_t bytes;
-    for(;;) {
-   size_t r;
-   r =  fread(pBuffer, 1, 10, sFile);
-   if (r == 0) {
-       if (ferror(sFile)) {
-           puts("Error reading from source");
-       }
-
-       break; //we're done
-   }
-   if (fwrite(pBuffer, 1, r, oFile) != r) {
-       puts("Error writing to destination");
-       break;
-   }
    OSScreenClearBufferEx(SCREEN_TV, 0);
    OSScreenClearBufferEx(SCREEN_DRC, 0);
    show_file_operation("file", pPath, oPath);
-                //console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));
-	
-                //sizew += bytes;
-                flipBuffers();
-                //fwrite(pBuffer, buf_size, 1, oFile);
-		//passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
-		//if(passedMs == 0)
-			//passedMs = 1;
-}
-        
-	
-	
-	
-    
-	fclose(sFile);
-	fclose(oFile);
-	free(pBuffer);
-	return 0;
+               
+   flipBuffers();
+   std::filesystem::copy_file(pPath, oPath);
+
+   return 0;
 }
 
 int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
