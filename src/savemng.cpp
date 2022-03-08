@@ -1,11 +1,11 @@
 #include <nn/act/client_cpp.h>
 #include <filesystem>
 #include <iostream>
-#include <fstream>
+#include <cstdio>
 extern "C" {
 	#include "common/fs_defs.h"
 	#include "savemng.h"
-	#include <fcntl.h>
+	//#include <fcntl.h>
 }
 using namespace std;
 
@@ -405,31 +405,29 @@ void getAccountsSD(Title* title, u8 slot) {
 
 int DumpFile(char* pPath, const char* oPath) {
 
-   OSScreenClearBufferEx(SCREEN_TV, 0);
-   OSScreenClearBufferEx(SCREEN_DRC, 0);
-   show_file_operation("file", pPath, oPath);
-               
-   flipBuffers();
+  
   
 
-    ifstream source(pPath, ios::binary);
-    ofstream dest(oPath, ios::binary);
+    char buf[BUFFER_SIZE];
+    size_t size;
 
-    // file size
-    source.seekg(0, ios::end);
-    ifstream::pos_type size = source.tellg();
-    source.seekg(0);
-    // allocate memory for buffer
-    char* buffer = new char[BUFFER_SIZE];
+    FILE* source = fopen(pPath, "rb");
+    FILE* dest = fopen(oPath, "wb");
 
-    // copy file    
-    source.read(buffer, BUFFER_SIZE);
-    dest.write(buffer, BUFFER_SIZE);
+    // clean and more secure
+    // feof(FILE* stream) returns non-zero if the end of file indicator for stream is set
 
-    // clean up
-    delete[] buffer;
-    source.close();
-    dest.close();
+    while (size = fread(buf, 1, BUFSIZ, source)) {
+        fwrite(buf, 1, size, dest);
+        OSScreenClearBufferEx(SCREEN_TV, 0);
+        OSScreenClearBufferEx(SCREEN_DRC, 0);
+        show_file_operation("file", pPath, oPath);
+               
+        flipBuffers();
+    }
+
+    fclose(source);
+    fclose(dest);
 
    return 0;
 }
