@@ -405,47 +405,45 @@ void getAccountsSD(Title* title, u8 slot) {
 	}
 }
 
-int DumpFile(char* pPath, const char* oPath) {
+int DumpFile(char *pPath, const char * oPath)
+{
+    unsigned char* dataBuf = (unsigned char*)memalign(0x40, BUFFER_SIZE);
 
-  
-  size_t buf_size = BUFFER_SIZE;
-  int size_file;
-  uint8_t * pBuffer;
+    FILE *pReadFile = fopen(pPath, "rb");
 
-	do{
-		buf_size -= BUFFER_SIZE_STEPS;
-		if (buf_size < 0) {
-			promptError("Error allocating Buffer.");
-			return -1;
-		}
-		pBuffer = (uint8_t *)memalign(0x40, buf_size);
-		if (pBuffer) memset(pBuffer, 0x00, buf_size);
-	}while(!pBuffer);
+    FILE *pWriteFile = fopen(oPath, "wb");
+    unsigned int size = 0;
+    unsigned int ret;
+    uint32_t passedMs = 1;
+	struct stat *buf;
 
-    int source = open(pPath, O_RDONLY, 0);
-    int dest = open(oPath, O_WRONLY | O_CREAT /*| O_TRUNC/**/, 0644);
+	buf = malloc(sizeof(struct stat));
 
-    while ((size_file = read(source, pBuffer, buf_size)) > 0) {
-        write(dest, pBuffer, buf_size);
-        OSScreenClearBufferEx(SCREEN_TV, 0);
-        OSScreenClearBufferEx(SCREEN_DRC, 0);
-        show_file_operation("file", pPath, oPath);
-               
-        flipBuffers();
-    }
+	stat(pPath, buf);
+	int sizef = buf->st_size;
+    OSTime startTime = OSGetTime();
 
-    close(source);
-    close(dest);
-    free(pBuffer);
-   
-       
-       
-       
-    
+    // Copy rpl in memory
+    while ((ret = fread(dataBuf, 0x1, BUFFER_SIZE, pReadFile)) > 0)
+    {
+        passedMs = (uint32_t)OSTicksToMilliseconds(OSGetTime() - startTime);
+        if(passedMs == 0)
+            passedMs = 1; // avoid 0 div
 
-   
+        fwrite(dataBuf, 0x01, ret, pWriteFile);
+        size += ret;
+		OSScreenClearBufferEx(SCREEN_TV, 0);
+		OSScreenClearBufferEx(SCREEN_DRC, 0);
+		show_file_operation("file", pPath, oPath);
+		console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", size, sizef,  (u32)(((u64)size * 1000) / ((u64)1024 * passedMs)));    
+		flipBuffers();
+	}
 
-   return 0;
+    fclose(pWriteFile);
+    fclose(pReadFile);
+    free(dataBuf);
+	free(buf);
+    return 0;
 }
 
 int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
