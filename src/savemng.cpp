@@ -432,7 +432,7 @@ int DumpFile(char* pPath, const char* oPath) {
 	
                 sizew += bytes;
                 flipBuffers();
-                fwrite(pBuffer, buf_size, 1, oFile)
+                fwrite(pBuffer, buf_size, 1, oFile);
 		passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
 		if(passedMs == 0)
 			passedMs = 1;
