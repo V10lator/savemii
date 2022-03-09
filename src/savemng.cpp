@@ -405,69 +405,86 @@ void getAccountsSD(Title* title, u8 slot) {
 
 int DumpFile(char *pPath, const char * oPath)
 {
-    unsigned char* dataBuf = (unsigned char*)memalign(0x40, BUFFER_SIZE);
-
-    FILE *pReadFile = fopen(pPath, "rb");
-
-    FILE *pWriteFile = fopen(oPath, "wb");
-    unsigned int size = 0;
-    unsigned int ret;
-    uint32_t passedMs = 1;
-	struct stat *buf;
-
-	buf = malloc(sizeof(struct stat));
-
-	stat(pPath, buf);
-	int sizef = buf->st_size;
-    OSTime startTime = OSGetTime();
-
-    // Copy rpl in memory
-    while ((ret = fread(dataBuf, 0x1, BUFFER_SIZE, pReadFile)) > 0)
-    {
-        passedMs = (uint32_t)OSTicksToMilliseconds(OSGetTime() - startTime);
-        if(passedMs == 0)
-            passedMs = 1; // avoid 0 div
-
-        fwrite(dataBuf, 0x01, ret, pWriteFile);
-        size += ret;
-		OSScreenClearBufferEx(SCREEN_TV, 0);
-		OSScreenClearBufferEx(SCREEN_DRC, 0);
-		show_file_operation("file", pPath, oPath);
-		console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", size, sizef,  (u32)(((u64)size * 1000) / ((u64)1024 * passedMs)));    
-		flipBuffers();
-	}
-
-    fclose(pWriteFile);
-    fclose(pReadFile);
-    free(dataBuf);
-	free(buf);
-    return 0;
-}
-
-bool is_dir(const char* path)
-{
-    struct stat buf;
-    stat(path, &buf);
-    return S_ISDIR(buf.st_mode);
-}
-
-int CopyFile(char *pPath, const char * oPath)
-{
+    string line;
+    //For writing text file
+    //Creating ofstream & ifstream class object
+    ifstream ini_file {pPath};
+    ofstream out_file {oPath};
+ 
+    if(ini_file && out_file){
+ 
+        while(getline(ini_file,line)){
+            out_file << line << "\n";
 	OSScreenClearBufferEx(SCREEN_TV, 0);
 	OSScreenClearBufferEx(SCREEN_DRC, 0);
 	show_file_operation("file", pPath, oPath);
+	//console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", size, sizef,  (u32)(((u64)size * 1000) / ((u64)1024 * passedMs)));    
 	flipBuffers();
-    filesystem::copy_file(pPath, oPath);
+        }
+ 
+    } else {
+        return -1;
+    }
+ 
+    //Closing file
+    ini_file.close();
+    out_file.close();
+	
     return 0;
 }
 
 int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
-	OSScreenClearBufferEx(SCREEN_TV, 0);
-	OSScreenClearBufferEx(SCREEN_DRC, 0);
-	show_file_operation("folder", pPath, tPath);
-	flipBuffers();
-    filesystem::copy(pPath, tPath, std::filesystem::copy_options::recursive);
-    return 0;
+	int dirH;
+
+	if (IOSUHAX_FSA_OpenDir(fsaFd, pPath, &dirH) < 0) return -1;
+	IOSUHAX_FSA_MakeDir(fsaFd, tPath, 0x666);
+
+	while (1) {
+		directoryEntry_s data;
+		int ret = IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data);
+		if (ret != 0)
+			break;
+
+		OSScreenClearBufferEx(SCREEN_TV, 0);
+		OSScreenClearBufferEx(SCREEN_DRC, 0);
+
+		if (strcmp(data.name, "..") == 0 || strcmp(data.name, ".") == 0) continue;
+
+		int len = strlen(pPath);
+		snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data.name);
+
+		if (data.stat.flag & DIR_ENTRY_IS_DIRECTORY) {
+			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
+
+			IOSUHAX_FSA_MakeDir(fsaFd, targetPath, 0x666);
+			if (DumpDir(pPath, targetPath) != 0) {
+				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+				return -2;
+			}
+
+			free(targetPath);
+		} else {
+			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
+
+			p1 = data.name;
+			show_file_operation(data.name, pPath, targetPath);
+
+			if (DumpFile(pPath, targetPath) != 0) {
+				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+				return -3;
+			}
+
+			free(targetPath);
+		}
+
+		pPath[len] = 0;
+	}
+
+	IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+
+	return 0;
 }
 
 int DeleteDir(char* pPath) {
