@@ -499,7 +499,7 @@ int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
 			p1 = data.name;
 			show_file_operation(data.name, pPath, targetPath);
 
-			if (DumpFile(pPath, targetPath) != 0) {
+			if (CopyFile(pPath, targetPath) != 0) {
 				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
 				return -3;
 			}
