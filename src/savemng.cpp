@@ -403,86 +403,6 @@ void getAccountsSD(Title* title, u8 slot) {
 	}
 }
 
-int CheckFile(const char * filepath)
-{
-    if(!filepath)
-        return 0;
-
-    struct stat filestat;
-
-    char dirnoslash[strlen(filepath)+2];
-    snprintf(dirnoslash, sizeof(dirnoslash), "%s", filepath);
-
-    while(dirnoslash[strlen(dirnoslash)-1] == '/')
-        dirnoslash[strlen(dirnoslash)-1] = '\0';
-
-    char * notRoot = strrchr(dirnoslash, '/');
-    if(!notRoot)
-    {
-        strcat(dirnoslash, "/");
-    }
-
-    if (stat(dirnoslash, &filestat) == 0)
-        return 1;
-
-    return 0;
-}
-
-int CreateSubfolder(const char * fullpath)
-{
-    if(!fullpath)
-        return 0;
-
-    int result = 0;
-
-    char dirnoslash[strlen(fullpath)+1];
-    strcpy(dirnoslash, fullpath);
-
-    int pos = strlen(dirnoslash)-1;
-    while(dirnoslash[pos] == '/')
-    {
-        dirnoslash[pos] = '\0';
-        pos--;
-    }
-
-    if(CheckFile(dirnoslash))
-    {
-        return 1;
-    }
-    else
-    {
-        char parentpath[strlen(dirnoslash)+2];
-        strcpy(parentpath, dirnoslash);
-        char * ptr = strrchr(parentpath, '/');
-
-        if(!ptr)
-        {
-            //!Device root directory (must be with '/')
-            strcat(parentpath, "/");
-            struct stat filestat;
-            if (stat(parentpath, &filestat) == 0)
-                return 1;
-
-            return 0;
-        }
-
-        ptr++;
-        ptr[0] = '\0';
-
-        result = CreateSubfolder(parentpath);
-    }
-
-    if(!result)
-        return 0;
-
-    if (mkdir(dirnoslash, 0777) == -1)
-    {
-        return 0;
-    }
-
-    return 1;
-}
-
 int DumpFile(char *pPath, const char * oPath)
 {
     unsigned char* dataBuf = (unsigned char*)memalign(0x40, BUFFER_SIZE);
@@ -556,7 +476,7 @@ int DumpDir(const char *pPath, string target_path)
                     outStrPath = target_path;
                     outStrPath.append( "\\" );
                     outStrPath.append( tmpStr );
-                    mkdir(outStrPath.c_str(), 0x777);
+                    mkdir(outStrPath.c_str(), 0x666);
 
                     DumpDir(tmpStrPath.c_str(), outStrPath);
                 }
