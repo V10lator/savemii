@@ -461,13 +461,6 @@ int CopyFile(char *pPath, const char * oPath)
     return 0;
 }
 
-bool is_dir(const char* path)
-{
-    struct stat buf;
-    stat(path, &buf);
-    return S_ISDIR(buf.st_mode);
-}
-
 int DumpDir(const char *pPath, string target_path)
 {
     DIR *pDIR;
