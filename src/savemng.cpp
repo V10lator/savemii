@@ -462,57 +462,12 @@ int CopyFile(char *pPath, const char * oPath)
 }
 
 int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
-	int dirH;
-
-	if (IOSUHAX_FSA_OpenDir(fsaFd, pPath, &dirH) < 0) return -1;
-	IOSUHAX_FSA_MakeDir(fsaFd, tPath, 0x666);
-
-	while (1) {
-		directoryEntry_s data;
-		int ret = IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data);
-		if (ret != 0)
-			break;
-
-		OSScreenClearBufferEx(SCREEN_TV, 0);
-		OSScreenClearBufferEx(SCREEN_DRC, 0);
-
-		if (strcmp(data.name, "..") == 0 || strcmp(data.name, ".") == 0) continue;
-
-		int len = strlen(pPath);
-		snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data.name);
-
-		if (data.stat.flag & DIR_ENTRY_IS_DIRECTORY) {
-			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
-			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
-
-			IOSUHAX_FSA_MakeDir(fsaFd, targetPath, 0x666);
-			if (DumpDir(pPath, targetPath) != 0) {
-				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
-				return -2;
-			}
-
-			free(targetPath);
-		} else {
-			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
-			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
-
-			p1 = data.name;
-			show_file_operation(data.name, pPath, targetPath);
-
-			if (CopyFile(pPath, targetPath) != 0) {
-				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
-				return -3;
-			}
-
-			free(targetPath);
-		}
-
-		pPath[len] = 0;
-	}
-
-	IOSUHAX_FSA_CloseDir(fsaFd, dirH);
-
-	return 0;
+	OSScreenClearBufferEx(SCREEN_TV, 0);
+	OSScreenClearBufferEx(SCREEN_DRC, 0);
+	show_file_operation("folder", pPath, tPath);
+	flipBuffers();
+    filesystem::copy(pPath, tPath, std::filesystem::copy_options::recursive);
+    return 0;
 }
 
 int DeleteDir(char* pPath) {
