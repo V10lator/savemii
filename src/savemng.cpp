@@ -8,6 +8,7 @@ using namespace std;
 
 #define BUFFER_SIZE 				0x8020
 #define BUFFER_SIZE_STEPS           0x20
+#define IO_MAX_FILE_BUFFER	(1024 * 1024) // 1 MB
 
 int fsaFd = -1;
 char * p1;
@@ -385,7 +386,7 @@ void getAccountsSD(Title* title, u8 slot) {
 
 int DumpFile(char *pPath, const char * oPath)
 {
-	int buf_size = BUFFER_SIZE;
+	int buf_size = IO_MAX_FILE_BUFFER;
  	uint8_t * pBuffer = MEMAllocFromDefaultHeapEx(buf_size, 0x40);
 
 	FILE* source = fopen(pPath, "rb");
@@ -393,7 +394,7 @@ int DumpFile(char *pPath, const char * oPath)
 	if ((dest && source) == NULL) {
         return -1;
     }
-    setvbuf(dest, pBuffer, _IOFBF, buf_size);
+    setvbuf(dest, pBuffer, _IOFBF, IO_MAX_FILE_BUFFER);
 	struct stat st;
 	stat(pPath, &st);
 	int sizef = st.st_size;
