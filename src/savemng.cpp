@@ -461,48 +461,58 @@ int CopyFile(char *pPath, const char * oPath)
     return 0;
 }
 
-int DumpDir(const char *pPath, string target_path)
-{
-    DIR *pDIR;
-    struct dirent *entry;
-    string tmpStr, tmpStrPath, outStrPath, inputDir_str = pPath;
-    if (is_dir(pPath) == false)
-    {
-        return -1;
-    }
-    if(pDIR = opendir(inputDir_str.c_str()))
-    {
-        while(entry = readdir(pDIR)) // get folders and files names
-        {
-            tmpStr = entry->d_name;
-            if( strcmp(entry->d_name, ".")  != 0 && strcmp(entry->d_name, "..") != 0 )
-            {
-                tmpStrPath = inputDir_str;
-                tmpStrPath.append("/");
-                tmpStrPath.append(tmpStr);
-                if (is_dir(tmpStrPath.c_str()))
-                {
-                    // Create Folder on the destination path
-                    outStrPath = target_path;
-                    outStrPath.append("/");
-                    outStrPath.append(tmpStr);
-                    filesystem::create_directory(outStrPath.c_str());
+int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
+	int dirH;
 
-                    DumpDir(tmpStrPath.c_str(), outStrPath);
-                }
-                else
-                {
-                    // copy file on the destination path
-                    outStrPath = target_path;
-                    outStrPath.append("/");
-                    outStrPath.append(tmpStr);
-                    CopyFile((char*)tmpStrPath.c_str(), outStrPath.c_str());
-                }
-            }
-        }
-        closedir(pDIR);
-    }
-    return 0;
+	if (IOSUHAX_FSA_OpenDir(fsaFd, pPath, &dirH) < 0) return -1;
+	IOSUHAX_FSA_MakeDir(fsaFd, tPath, 0x666);
+
+	while (1) {
+		directoryEntry_s data;
+		int ret = IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data);
+		if (ret != 0)
+			break;
+
+		OSScreenClearBufferEx(SCREEN_TV, 0);
+		OSScreenClearBufferEx(SCREEN_DRC, 0);
+
+		if (strcmp(data.name, "..") == 0 || strcmp(data.name, ".") == 0) continue;
+
+		int len = strlen(pPath);
+		snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data.name);
+
+		if (data.stat.flag & DIR_ENTRY_IS_DIRECTORY) {
+			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
+
+			IOSUHAX_FSA_MakeDir(fsaFd, targetPath, 0x666);
+			if (DumpDir(pPath, targetPath) != 0) {
+				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+				return -2;
+			}
+
+			free(targetPath);
+		} else {
+			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
+
+			p1 = data.name;
+			show_file_operation(data.name, pPath, targetPath);
+
+			if (DumpFile(pPath, targetPath) != 0) {
+				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+				return -3;
+			}
+
+			free(targetPath);
+		}
+
+		pPath[len] = 0;
+	}
+
+	IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+
+	return 0;
 }
 
 int DeleteDir(char* pPath) {
