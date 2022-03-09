@@ -1,17 +1,15 @@
 #include <nn/act/client_cpp.h>
+#include <sys/stat.h>
+#include <fstream>
 #include <filesystem>
-
-#include <fcntl.h>   // open
-#include <unistd.h>  // read, write, close
-#include <cstdio>
-
+#include <dirent.h>
 extern "C" {
 	#include "common/fs_defs.h"
 	#include "savemng.h"
 }
 using namespace std;
 
-#define BUFFER_SIZE 				0x8020
+#define BUFFER_SIZE     0x80000
 #define BUFFER_SIZE_STEPS           0x20
 
 int fsaFd = -1;
@@ -405,6 +403,86 @@ void getAccountsSD(Title* title, u8 slot) {
 	}
 }
 
+int CheckFile(const char * filepath)
+{
+    if(!filepath)
+        return 0;
+
+    struct stat filestat;
+
+    char dirnoslash[strlen(filepath)+2];
+    snprintf(dirnoslash, sizeof(dirnoslash), "%s", filepath);
+
+    while(dirnoslash[strlen(dirnoslash)-1] == '/')
+        dirnoslash[strlen(dirnoslash)-1] = '\0';
+
+    char * notRoot = strrchr(dirnoslash, '/');
+    if(!notRoot)
+    {
+        strcat(dirnoslash, "/");
+    }
+
+    if (stat(dirnoslash, &filestat) == 0)
+        return 1;
+
+    return 0;
+}
+
+int CreateSubfolder(const char * fullpath)
+{
+    if(!fullpath)
+        return 0;
+
+    int result = 0;
+
+    char dirnoslash[strlen(fullpath)+1];
+    strcpy(dirnoslash, fullpath);
+
+    int pos = strlen(dirnoslash)-1;
+    while(dirnoslash[pos] == '/')
+    {
+        dirnoslash[pos] = '\0';
+        pos--;
+    }
+
+    if(CheckFile(dirnoslash))
+    {
+        return 1;
+    }
+    else
+    {
+        char parentpath[strlen(dirnoslash)+2];
+        strcpy(parentpath, dirnoslash);
+        char * ptr = strrchr(parentpath, '/');
+
+        if(!ptr)
+        {
+            //!Device root directory (must be with '/')
+            strcat(parentpath, "/");
+            struct stat filestat;
+            if (stat(parentpath, &filestat) == 0)
+                return 1;
+
+            return 0;
+        }
+
+        ptr++;
+        ptr[0] = '\0';
+
+        result = CreateSubfolder(parentpath);
+    }
+
+    if(!result)
+        return 0;
+
+    if (mkdir(dirnoslash, 0777) == -1)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
 int DumpFile(char *pPath, const char * oPath)
 {
     unsigned char* dataBuf = (unsigned char*)memalign(0x40, BUFFER_SIZE);
@@ -446,70 +524,98 @@ int DumpFile(char *pPath, const char * oPath)
     return 0;
 }
 
-int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
-	DIR *dir = NULL;
+bool is_dir(const char* path)
+{
+    struct stat buf;
+    stat(path, &buf);
+    return S_ISDIR(buf.st_mode);
+}
 
-	if ((dir = opendir(pPath)) == NULL) return -1;
-	mkdir(tPath, 0x666);
+int DumpDir(const char *pPath, string target_path)
+{
+    DIR *pDIR;
+    struct dirent *entry;
+    string tmpStr, tmpStrPath, outStrPath, inputDir_str = pPath;
+    if (is_dir(pPath) == false)
+    {
+        return -1;
+    }
+    if( pDIR = opendir(inputDir_str.c_str()) )
+    {
+        while(entry = readdir(pDIR)) // get folders and files names
+        {
+            tmpStr = entry->d_name;
+            if( strcmp(entry->d_name, ".")  != 0 && strcmp(entry->d_name, "..") != 0 )
+            {
+                tmpStrPath = inputDir_str;
+                tmpStrPath.append( "\\" );
+                tmpStrPath.append( tmpStr );
+                if (is_dir(tmpStrPath.c_str()))
+                {
+                    // Create Folder on the destination path
+                    outStrPath = target_path;
+                    outStrPath.append( "\\" );
+                    outStrPath.append( tmpStr );
+                    mkdir(outStrPath.c_str(), 0x777);
+
+                    DumpDir(tmpStrPath.c_str(), outStrPath);
+                }
+                else
+                {
+                    // copy file on the destination path
+                    outStrPath = target_path;
+                    outStrPath.append( "\\" );
+                    outStrPath.append( tmpStr );
+                    DumpFile((char*)tmpStrPath.c_str(), outStrPath.c_str());
+                }
+            }
+        }
+        closedir(pDIR);
+    }
+    return 0;
+}
+
+int DeleteDir(char* pPath) {
+	int dirH;
+
+	if (IOSUHAX_FSA_OpenDir(fsaFd, pPath, &dirH) < 0) return -1;
 
 	while (1) {
-		struct dirent *data;
-		int ret = readdir(dir);
+		directoryEntry_s data;
+		int ret = IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data);
 		if (ret != 0)
 			break;
 
 		OSScreenClearBufferEx(SCREEN_TV, 0);
 		OSScreenClearBufferEx(SCREEN_DRC, 0);
 
-		if (strcmp(data->d_name, "..") == 0 || strcmp(data->d_name, ".") == 0) continue;
+		if (strcmp(data.name, "..") == 0 || strcmp(data.name, ".") == 0) continue;
 
 		int len = strlen(pPath);
-		snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data->d_name);
+		snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data.name);
 
-		if (data->d_type & DT_DIR) {
-			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
-			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data->d_name);
+		if (data.stat.flag & DIR_ENTRY_IS_DIRECTORY) {
+			char origPath[PATH_SIZE];
+			sprintf(origPath, "%s", pPath);
+			DeleteDir(pPath);
 
-			mkdir(targetPath, 0x666);
-			if (DumpDir(pPath, targetPath) != 0) {
-				closedir(dir);
-				return -2;
-			}
+			OSScreenClearBufferEx(SCREEN_TV, 0);
+			OSScreenClearBufferEx(SCREEN_DRC, 0);
 
-			free(targetPath);
+			console_print_pos(-2, 0, "Deleting folder %s", data.name);
+			console_print_pos_multiline(-2, 2, '/', "From: \n%s", origPath);
+			if (IOSUHAX_FSA_Remove(fsaFd, origPath) != 0) promptError("Failed to delete folder.");
 		} else {
-			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
-			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data->d_name);
-
-			p1 = data->d_name;
-			show_file_operation(data->d_name, pPath, targetPath);
-
-			if (DumpFile(pPath, targetPath) != 0) {
-				closedir(dir);
-				return -3;
-			}
-
-			free(targetPath);
+			console_print_pos(-2, 0, "Deleting file %s", data.name);
+			console_print_pos_multiline(-2, 2, '/', "From: \n%s", pPath);
+			if (IOSUHAX_FSA_Remove(fsaFd, pPath) != 0) promptError("Failed to delete file.");
 		}
 
+		flipBuffers();
 		pPath[len] = 0;
 	}
 
-	closedir(dir);
-
-	return 0;
-}
-
-int DeleteDir(char* pPath) {
-	OSScreenClearBufferEx(SCREEN_TV, 0);
-	OSScreenClearBufferEx(SCREEN_DRC, 0);
-
-	console_print_pos(-2, 0, "Deleting folder %s", pPath);
-	
-	std::filesystem::remove_all(pPath);
-			
-	flipBuffers();
-		
+	IOSUHAX_FSA_CloseDir(fsaFd, dirH);
 	return 0;
 }
 
