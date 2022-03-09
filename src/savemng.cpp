@@ -451,6 +451,23 @@ bool is_dir(const char* path)
     return S_ISDIR(buf.st_mode);
 }
 
+int CopyFile(char *pPath, const char * oPath)
+{
+	OSScreenClearBufferEx(SCREEN_TV, 0);
+	OSScreenClearBufferEx(SCREEN_DRC, 0);
+	show_file_operation("file", pPath, oPath);
+	flipBuffers();
+    filesystem::copy_file(pPath, oPath);
+    return 0;
+}
+
+bool is_dir(const char* path)
+{
+    struct stat buf;
+    stat(path, &buf);
+    return S_ISDIR(buf.st_mode);
+}
+
 int DumpDir(const char *pPath, string target_path)
 {
     DIR *pDIR;
@@ -460,7 +477,7 @@ int DumpDir(const char *pPath, string target_path)
     {
         return -1;
     }
-    if( pDIR = opendir(inputDir_str.c_str()) )
+    if(pDIR = opendir(inputDir_str.c_str()))
     {
         while(entry = readdir(pDIR)) // get folders and files names
         {
@@ -468,15 +485,15 @@ int DumpDir(const char *pPath, string target_path)
             if( strcmp(entry->d_name, ".")  != 0 && strcmp(entry->d_name, "..") != 0 )
             {
                 tmpStrPath = inputDir_str;
-                tmpStrPath.append( "\\" );
-                tmpStrPath.append( tmpStr );
+                tmpStrPath.append("/");
+                tmpStrPath.append(tmpStr);
                 if (is_dir(tmpStrPath.c_str()))
                 {
                     // Create Folder on the destination path
                     outStrPath = target_path;
-                    outStrPath.append( "\\" );
-                    outStrPath.append( tmpStr );
-                    mkdir(outStrPath.c_str(), 0x666);
+                    outStrPath.append("/");
+                    outStrPath.append(tmpStr);
+                    filesystem::create_directory(outStrPath.c_str());
 
                     DumpDir(tmpStrPath.c_str(), outStrPath);
                 }
@@ -484,9 +501,9 @@ int DumpDir(const char *pPath, string target_path)
                 {
                     // copy file on the destination path
                     outStrPath = target_path;
-                    outStrPath.append( "\\" );
-                    outStrPath.append( tmpStr );
-                    DumpFile((char*)tmpStrPath.c_str(), outStrPath.c_str());
+                    outStrPath.append("/");
+                    outStrPath.append(tmpStr);
+                    CopyFile((char*)tmpStrPath.c_str(), outStrPath.c_str());
                 }
             }
         }
