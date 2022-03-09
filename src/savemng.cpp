@@ -1,15 +1,12 @@
 #include <nn/act/client_cpp.h>
 #include <sys/stat.h>
-#include <fstream>
-#include <filesystem>
-#include <dirent.h>
 extern "C" {
 	#include "common/fs_defs.h"
 	#include "savemng.h"
 }
 using namespace std;
 
-#define BUFFER_SIZE     0x80000
+#define BUFFER_SIZE 				0x8020
 #define BUFFER_SIZE_STEPS           0x20
 
 int fsaFd = -1;
@@ -22,23 +19,6 @@ VPADReadError error;
 
 void setFSAFD(int fd) {
 	fsaFd = fd;
-}
-
-void replace_str(char *str, char *orig, char *rep, int start, char *out) {
-	static char temp[PATH_SIZE];
-	static char buffer[PATH_SIZE];
-	char *p;
-
-	strcpy(temp, str + start);
-
-	if (!(p = strstr(temp, orig)))  // Is 'orig' even in 'temp'?
-		return;
-
-	strncpy(buffer, temp, p-temp); // Copy characters from 'temp' start to 'orig' str
-	buffer[p-temp] = '\0';
-
-	sprintf(buffer + (p - temp), "%s%s", rep, p + strlen(orig));
-	sprintf(out, "%s", buffer);
 }
 
 void show_file_operation(const char* file_name, const char* file_src, const char* file_dest) {
@@ -405,30 +385,47 @@ void getAccountsSD(Title* title, u8 slot) {
 
 int DumpFile(char *pPath, const char * oPath)
 {
-    string line;
-    //For writing text file
-    //Creating ofstream & ifstream class object
-    ifstream ini_file {pPath};
-    ofstream out_file {oPath};
- 
-    if(ini_file && out_file){
- 
-        while(getline(ini_file,line)){
-            out_file << line << "\n";
-	OSScreenClearBufferEx(SCREEN_TV, 0);
-	OSScreenClearBufferEx(SCREEN_DRC, 0);
-	show_file_operation("file", pPath, oPath);
-	//console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", size, sizef,  (u32)(((u64)size * 1000) / ((u64)1024 * passedMs)));    
-	flipBuffers();
-        }
- 
-    } else {
+	int buf_size = BUFFER_SIZE;
+ 	uint8_t * pBuffer;
+
+	do{
+		buf_size -= BUFFER_SIZE_STEPS;
+		if (buf_size < 0) {
+			promptError("Error allocating Buffer.");
+			return;
+		}
+		pBuffer = (uint8_t *)memalign(0x40, buf_size);
+		if (pBuffer) memset(pBuffer, 0x00, buf_size);
+	}while(!pBuffer);
+
+	FILE* source = fopen(pPath, "rb");
+    FILE* dest = fopen(oPath, "wb");
+	if ((dest && source) == NULL) {
         return -1;
     }
- 
-    //Closing file
-    ini_file.close();
-    out_file.close();
+	struct stat st;
+	stat(pPath, &st);
+	int sizef = st.st_size;
+	int sizew = 0, size;
+	u32 passedMs = 1;
+	u64 startTime = OSGetTime();
+
+	while ((size = fread(pBuffer, 1, buf_size, source)) > 0) {
+		fwrite(pBuffer, 1, size, dest);
+		passedMs = (uint32_t)OSTicksToMilliseconds(OSGetTime() - startTime);
+        if(passedMs == 0)
+            passedMs = 1; // avoid 0 div
+		OSScreenClearBufferEx(SCREEN_TV, 0);
+		OSScreenClearBufferEx(SCREEN_DRC, 0);
+		sizew += size;
+		show_file_operation("file", pPath, oPath);
+		console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));    
+		flipBuffers();
+	}
+
+    fclose(source);
+    fclose(dest);
+	free(pBuffer);
 	
     return 0;
 }
