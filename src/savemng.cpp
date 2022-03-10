@@ -6,8 +6,6 @@ extern "C" {
 }
 using namespace std;
 
-#define BUFFER_SIZE 				0x8020
-#define BUFFER_SIZE_STEPS           0x20
 #define IO_MAX_FILE_BUFFER	(1024 * 1024) // 1 MB
 
 int fsaFd = -1;
