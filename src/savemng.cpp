@@ -435,6 +435,31 @@ int DumpFile(char *pPath, const char * oPath)
     return 0;
 }
 
+int CheckFile(const char * filepath)
+{
+	if(!filepath)
+		return 0;
+
+	struct stat filestat;
+
+	char dirnoslash[strlen(filepath)+2];
+	snprintf(dirnoslash, sizeof(dirnoslash), "%s", filepath);
+
+	while(dirnoslash[strlen(dirnoslash)-1] == '/')
+		dirnoslash[strlen(dirnoslash)-1] = '\0';
+
+	char * notRoot = strrchr(dirnoslash, '/');
+	if(!notRoot)
+	{
+		strcat(dirnoslash, "/");
+	}
+
+	if (stat(dirnoslash, &filestat) == 0)
+		return 1;
+
+	return 0;
+}
+
 int CreateSubfolder(const char * fullpath)
 {
 	if(!fullpath)
