@@ -1,7 +1,5 @@
 #include <nn/act/client_cpp.h>
 #include <sys/stat.h>
-#include <errno.h>
-#include <filesystem>
 extern "C" {
 	#include "common/fs_defs.h"
 	#include "savemng.h"
@@ -20,36 +18,36 @@ u8 wiiuaccn = 0, sdaccn = 5;
 VPADStatus status;
 VPADReadError error;
 
+char *replace_str(char *str, char *orig, char *rep)
+{
+  static char buffer[4096];
+  char *p;
+
+  if(!(p = strstr(str, orig)))  // Is 'orig' even in 'str'?
+    return str;
+
+  strncpy(buffer, str, p-str); // Copy characters from 'str' start to 'orig' st$
+  buffer[p-str] = '\0';
+
+  sprintf(buffer+(p-str), "%s%s", rep, p+strlen(orig));
+
+  return buffer;
+}
+
+bool StartsWith(const char *a, const char *b)
+{
+   if(strncmp(a, b, strlen(b)) == 0) return 1;
+   return 0;
+}
+
 void setFSAFD(int fd) {
 	fsaFd = fd;
 }
 
 void show_file_operation(const char* file_name, const char* file_src, const char* file_dest) {
-	char dev_s[100], dev_d[100];
-
-	if (strncmp(strchr(file_src, '_'), "_usb", 4) == 0) {
-		strcpy(dev_s, " (USB)");
-	} else if (strncmp(strchr(file_src, '_'), "_mlc", 4) == 0) {
-		strcpy(dev_s, " (NAND WiiU)");
-	} else if (strncmp(strchr(file_src, '_'), "_slccmpt", 8) == 0) {
-		strcpy(dev_s, " (NAND vWii)");
-	} else if (strncmp(strchr(file_src, '_'), "_sdcard", 7) == 0) {
-		strcpy(dev_s, " (SD)");
-	}
-
-	if (strncmp(strchr(file_dest, '_'), "_usb", 4) == 0) {
-		strcpy(dev_d, " (USB)");
-	} else if (strncmp(strchr(file_dest, '_'), "_mlc", 4) == 0) {
-		strcpy(dev_d, " (NAND WiiU)");
-	} else if (strncmp(strchr(file_dest, '_'), "_slccmpt", 8) == 0) {
-		strcpy(dev_d, " (NAND vWii)");
-	} else if (strncmp(strchr(file_dest, '_'), "_sdcard", 7) == 0) {
-		strcpy(dev_d, " (SD)");
-	}
-
 	console_print_pos(-2, 0, "Copying file: %s", file_name);
-	console_print_pos_multiline(-2, 2, '/', "From%s: \n%s", dev_s, strstr(strstr(strstr(file_src, "/") + 1,"/") + 1,"/"));
-	console_print_pos_multiline(-2, 8, '/', "To%s: \n%s", dev_d, strstr(strstr(strstr(file_dest, "/") + 1,"/") + 1,"/"));
+    console_print_pos_multiline(-2, 2, '/', "From: %s", file_src);
+    console_print_pos_multiline(-2, 8, '/', "To: %s", file_dest);
 }
 
 int FSAR(int result) {
@@ -122,19 +120,26 @@ s32 loadTitleIcon(Title* title) {
 }
 
 int checkEntry(const char * fPath) {
-	struct stat ret;
-	stat(fPath, &ret);
+	fileStat_s fStat;
+	int ret = FSAR(IOSUHAX_FSA_GetStat(fsaFd, fPath, &fStat));
 
-	if (errno == ENOENT) return 0;
-	if(S_ISDIR(ret.st_mode)) return 2;
+	if (ret == FSA_STATUS_NOT_FOUND) return 0;
+	else if (ret < 0) return -1;
 
+	if (fStat.flag & DIR_ENTRY_IS_DIRECTORY) return 2;
 	return 1;
 }
 
 int folderEmpty(const char * fPath) {
-	if(filesystem::is_empty(fPath)){
-		return 1;
-	}
+	int dirH;
+
+	if (IOSUHAX_FSA_OpenDir(fsaFd, fPath, &dirH) >= 0) {
+		directoryEntry_s data;
+		int ret = FSAR(IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data));
+		IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+		if (ret == FSA_STATUS_END_OF_DIRECTORY)
+			return 1;
+	} else return -1;
 	return 0;
 }
 
@@ -380,32 +385,38 @@ void getAccountsSD(Title* title, u8 slot) {
 
 int DumpFile(char *pPath, const char * oPath)
 {
+	if(StartsWith(pPath, "/vol/storage_slccmpt01"))
+		pPath = replace_str(pPath, (char*)"/vol/storage_slccmpt01", (char*)"slccmpt01:");
+	
+	if(StartsWith(pPath, "/vol/storage_usb01")) 
+		pPath = replace_str(pPath, (char*)"/vol/storage_usb01", (char*)"storage_usb01:");
+	
 	FILE* source = fopen(pPath, "rb");
-    if (source == NULL) {
+    if (source == NULL)
         return -1;
-    }
+
     FILE* dest = fopen(oPath, "wb");
-     if (dest == NULL) {
+    if (dest == NULL) {
         fclose(source);
         return -1;
     }
-     int buf_size = IO_MAX_FILE_BUFFER;
-     char* pBuffer = (char*)MEMAllocFromDefaultHeapEx(IO_MAX_FILE_BUFFER, 0x40);
-     if (pBuffer == NULL) {
-        fclose(source);
+    size_t buf_size = IO_MAX_FILE_BUFFER;
+    char* pBuffer = (char*)MEMAllocFromDefaultHeapEx(IO_MAX_FILE_BUFFER, 0x40);
+    if (pBuffer == NULL) {
+    	fclose(source);
         fclose(dest);
         return -1;
     }
-    setvbuf(dest, pBuffer, _IOFBF, IO_MAX_FILE_BUFFER);
+	setvbuf(dest, pBuffer, _IOFBF, IO_MAX_FILE_BUFFER);
 	struct stat st;
 	stat(pPath, &st);
 	int sizef = st.st_size;
 	int sizew = 0, size;
 	u32 passedMs = 1;
 	u64 startTime = OSGetTime();
-
+	
 	while ((size = fread(pBuffer, 1, buf_size, source)) > 0) {
-		fwrite(pBuffer, 1, size, dest);
+		fwrite(pBuffer, 1, buf_size, dest);
 		passedMs = (uint32_t)OSTicksToMilliseconds(OSGetTime() - startTime);
         if(passedMs == 0)
             passedMs = 1; // avoid 0 div
