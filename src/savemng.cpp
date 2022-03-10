@@ -395,6 +395,7 @@ int DumpFile(char *pPath, const char * oPath)
         fclose(source);
         return -1;
     }
+     int buf_size = IO_MAX_FILE_BUFFER;
      uint8_t * pBuffer = MEMAllocFromDefaultHeapEx(IO_MAX_FILE_BUFFER, 0x40);
      if (pBuffer == NULL) {
         fclose(source);
