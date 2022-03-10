@@ -435,58 +435,106 @@ int DumpFile(char *pPath, const char * oPath)
     return 0;
 }
 
-int DumpDir(char* pPath, const char* tPath) { // Source: ft2sd
-	int dirH;
+int CreateSubfolder(const char * fullpath)
+{
+	if(!fullpath)
+		return 0;
 
-	if (IOSUHAX_FSA_OpenDir(fsaFd, pPath, &dirH) < 0) return -1;
-	IOSUHAX_FSA_MakeDir(fsaFd, tPath, 0x666);
+	int result = 0;
 
-	while (1) {
-		directoryEntry_s data;
-		int ret = IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data);
-		if (ret != 0)
-			break;
+	char dirnoslash[strlen(fullpath)+1];
+	strcpy(dirnoslash, fullpath);
 
-		OSScreenClearBufferEx(SCREEN_TV, 0);
-		OSScreenClearBufferEx(SCREEN_DRC, 0);
-
-		if (strcmp(data.name, "..") == 0 || strcmp(data.name, ".") == 0) continue;
-
-		int len = strlen(pPath);
-		snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data.name);
-
-		if (data.stat.flag & DIR_ENTRY_IS_DIRECTORY) {
-			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
-			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
-
-			IOSUHAX_FSA_MakeDir(fsaFd, targetPath, 0x666);
-			if (DumpDir(pPath, targetPath) != 0) {
-				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
-				return -2;
-			}
-
-			free(targetPath);
-		} else {
-			char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
-			snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", tPath, data.name);
-
-			p1 = data.name;
-			show_file_operation(data.name, pPath, targetPath);
-
-			if (DumpFile(pPath, targetPath) != 0) {
-				IOSUHAX_FSA_CloseDir(fsaFd, dirH);
-				return -3;
-			}
-
-			free(targetPath);
-		}
-
-		pPath[len] = 0;
+	int pos = strlen(dirnoslash)-1;
+	while(dirnoslash[pos] == '/')
+	{
+		dirnoslash[pos] = '\0';
+		pos--;
 	}
 
-	IOSUHAX_FSA_CloseDir(fsaFd, dirH);
+	if(CheckFile(dirnoslash))
+	{
+		return 1;
+	}
+	else
+	{
+		char parentpath[strlen(dirnoslash)+2];
+		strcpy(parentpath, dirnoslash);
+		char * ptr = strrchr(parentpath, '/');
 
-	return 0;
+		if(!ptr)
+		{
+			//!Device root directory (must be with '/')
+			strcat(parentpath, "/");
+			struct stat filestat;
+			if (stat(parentpath, &filestat) == 0)
+				return 1;
+
+			return 0;
+		}
+
+		ptr++;
+		ptr[0] = '\0';
+
+		result = CreateSubfolder(parentpath);
+	}
+
+	if(!result)
+		return 0;
+
+	if (mkdir(dirnoslash, 0777) == -1)
+	{
+		return 0;
+	}
+
+	return 1;
+}
+
+int DumpDir(char *pPath, const char * target_path) {
+
+    struct dirent *dirent = NULL;
+    DIR *dir = NULL;
+
+    dir = opendir(pPath);
+    if (dir == NULL) {
+        promptError("Failed to open directory.");
+        return -1;
+    }
+
+    CreateSubfolder(target_path);
+
+    while ((dirent = readdir(dir)) != 0) {
+
+        if(strcmp(dirent->d_name, "..") == 0 || strcmp(dirent->d_name, ".") == 0) continue;
+
+        int len = strlen(pPath);
+        snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", dirent->d_name);
+
+        if(dirent->d_type & DT_DIR) {
+            char *targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+            snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", target_path, dirent->d_name);
+
+            CreateSubfolder(targetPath);
+            DumpDir(pPath, targetPath);
+            free(targetPath);
+
+        } else {
+            char *targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+            snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", target_path, dirent->d_name);
+
+            DumpFile(pPath, targetPath);
+            free(targetPath);
+
+        }
+
+        pPath[len] = 0;
+
+    }
+
+    closedir(dir);
+
+    return 0;
+
 }
 
 int DeleteDir(char* pPath) {
