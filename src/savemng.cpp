@@ -386,14 +386,13 @@ void getAccountsSD(Title* title, u8 slot) {
 
 int DumpFile(char *pPath, const char * oPath)
 {
-	int buf_size = IO_MAX_FILE_BUFFER;
- 	uint8_t * pBuffer = MEMAllocFromDefaultHeapEx(buf_size, 0x40);
-
 	FILE* source = fopen(pPath, "rb");
     FILE* dest = fopen(oPath, "wb");
-	if ((dest && source) == NULL) {
+	if ((dest || source) == NULL) {
         return -1;
     }
+    int buf_size = IO_MAX_FILE_BUFFER;
+    uint8_t * pBuffer = MEMAllocFromDefaultHeapEx(buf_size, 0x40);
     setvbuf(dest, pBuffer, _IOFBF, IO_MAX_FILE_BUFFER);
 	struct stat st;
 	stat(pPath, &st);
