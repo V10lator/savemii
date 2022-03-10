@@ -1,5 +1,7 @@
 #include <nn/act/client_cpp.h>
 #include <sys/stat.h>
+#include <errno.h>
+#include <filesystem>
 extern "C" {
 	#include "common/fs_defs.h"
 	#include "savemng.h"
@@ -58,19 +60,19 @@ int FSAR(int result) {
 }
 
 s32 loadFile(const char * fPath, u8 **buf) {
-	int srcFd = -1;
-	int ret = IOSUHAX_FSA_OpenFile(fsaFd, fPath, "rb", &srcFd);
-	if (ret >= 0) {
-		fileStat_s fStat;
-		IOSUHAX_FSA_StatFile(fsaFd, srcFd, &fStat);
-		size_t size = fStat.size;
+	int ret = 0;
+	FILE* file = fopen(fPath, "rb");
+	if (file != NULL) {
+		struct stat st;
+		stat(fPath, &st);
+		int size = st.st_size;
 
 		*buf = (u8*)malloc(size);
 		if (*buf) {
 			memset(*buf, 0, size);
-			ret = IOSUHAX_FSA_ReadFile(fsaFd, *buf, 0x01, size, srcFd, 0);
+			ret = fread(*buf, 1, size, file);
 		}
-		IOSUHAX_FSA_CloseFile(fsaFd, srcFd);
+		fclose(file);
 	}
 	return ret;
 }
@@ -120,26 +122,19 @@ s32 loadTitleIcon(Title* title) {
 }
 
 int checkEntry(const char * fPath) {
-	fileStat_s fStat;
-	int ret = FSAR(IOSUHAX_FSA_GetStat(fsaFd, fPath, &fStat));
+	struct stat ret;
+	stat(fPath, &ret);
 
-	if (ret == FSA_STATUS_NOT_FOUND) return 0;
-	else if (ret < 0) return -1;
+	if (errno == ENOENT) return 0;
+	if(S_ISDIR(ret.st_mode)) return 2;
 
-	if (fStat.flag & DIR_ENTRY_IS_DIRECTORY) return 2;
 	return 1;
 }
 
 int folderEmpty(const char * fPath) {
-	int dirH;
-
-	if (IOSUHAX_FSA_OpenDir(fsaFd, fPath, &dirH) >= 0) {
-		directoryEntry_s data;
-		int ret = FSAR(IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data));
-		IOSUHAX_FSA_CloseDir(fsaFd, dirH);
-		if (ret == FSA_STATUS_END_OF_DIRECTORY)
-			return 1;
-	} else return -1;
+	if(filesystem::is_empty(fPath)){
+		return 1;
+	}
 	return 0;
 }
 
@@ -160,7 +155,7 @@ int createFolder(const char * fPath) { //Adapted from mkdir_p made by JonathonRe
 			if (found > 2) {
 				*p = '\0';
 				if (checkEntry(_path) == 0) {
-					if ((ret = FSAR(IOSUHAX_FSA_MakeDir(fsaFd, _path, 0x666))) < 0) return -1;
+					if ((ret = mkdir(_path, 0666)) < 0) return -1;
 				}
 				*p = '/';
 			}
@@ -168,7 +163,7 @@ int createFolder(const char * fPath) { //Adapted from mkdir_p made by JonathonRe
 	}
 
 	if (checkEntry(_path) == 0) {
-		if ((ret = FSAR(IOSUHAX_FSA_MakeDir(fsaFd, _path, 0x666))) < 0) return -1;
+		if ((ret = mkdir(_path, 0666)) < 0) return -1;
 	}
 
 	return 0;
@@ -323,7 +318,6 @@ void getAccountsWiiU() {
 			wiiuacc[accn].pID = persistentID;
 			sprintf(wiiuacc[accn].persistentID, "%08X", persistentID);
 			nn::act::GetMiiNameEx((int16_t*)out, i);
-			//convert_to_ascii(out, wiiuacc[accn].miiName);
 			memset(wiiuacc[accn].miiName, 0, sizeof(wiiuacc[accn].miiName));
 			for (int j = 0, k = 0; j < 10; j++) {
 				if (out[j] < 0x80)
@@ -396,7 +390,7 @@ int DumpFile(char *pPath, const char * oPath)
         return -1;
     }
      int buf_size = IO_MAX_FILE_BUFFER;
-     uint8_t * pBuffer = MEMAllocFromDefaultHeapEx(IO_MAX_FILE_BUFFER, 0x40);
+     char* pBuffer = (char*)MEMAllocFromDefaultHeapEx(IO_MAX_FILE_BUFFER, 0x40);
      if (pBuffer == NULL) {
         fclose(source);
         fclose(dest);
@@ -418,7 +412,7 @@ int DumpFile(char *pPath, const char * oPath)
 		OSScreenClearBufferEx(SCREEN_TV, 0);
 		OSScreenClearBufferEx(SCREEN_DRC, 0);
 		sizew += size;
-		show_file_operation("file", pPath, oPath);
+		show_file_operation(basename(pPath), pPath, oPath);
 		console_print_pos(-2, 15, "Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (u32)(((u64)sizew * 1000) / ((u64)1024 * passedMs)));    
 		flipBuffers();
 	}
