@@ -490,39 +490,46 @@ int CreateSubfolder(const char * fullpath)
 	return 1;
 }
 
-int DumpDir(char *pPath, const char * target_path) {
+int DumpDir(char* pPath, const char* target_path) { // Source: ft2sd
 
-    struct dirent *dirent = NULL;
-    DIR *dir = NULL;
+    struct dirent* dirent = NULL;
+    DIR* dir = NULL;
 
     dir = opendir(pPath);
-    if (dir == NULL) {
-        promptError("Failed to open directory.");
-        return -1;
-    }
+    if (dir == NULL) return -1;
 
     CreateSubfolder(target_path);
 
     while ((dirent = readdir(dir)) != 0) {
 
-        if(strcmp(dirent->d_name, "..") == 0 || strcmp(dirent->d_name, ".") == 0) continue;
+        if (strcmp(dirent->d_name, "..") == 0 || strcmp(dirent->d_name, ".") == 0) continue;
 
         int len = strlen(pPath);
         snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", dirent->d_name);
 
-        if(dirent->d_type & DT_DIR) {
-            char *targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+        if (dirent->d_type & DT_DIR) {
+
+            char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
             snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", target_path, dirent->d_name);
 
             CreateSubfolder(targetPath);
-            DumpDir(pPath, targetPath);
+            if (DumpDir(pPath, targetPath)!=0) {
+                closedir(dir);
+                return -2;
+            }
+
             free(targetPath);
 
         } else {
-            char *targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+
+            char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
             snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", target_path, dirent->d_name);
 
-            DumpFile(pPath, targetPath);
+            if (DumpFile(pPath, targetPath)!=0) {
+                closedir(dir);
+                return -3;
+            }
+
             free(targetPath);
 
         }
